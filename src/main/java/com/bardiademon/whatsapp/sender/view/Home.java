@@ -6,8 +6,10 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import java.awt.Font;
 
 public abstract class Home extends View
 {
@@ -36,6 +38,13 @@ public abstract class Home extends View
     protected void setView(String title)
     {
         initComponents();
+
+        SwingUtilities.invokeLater(() ->
+        {
+            final Font txtMessageFont = txtMessage.getFont();
+            txtMessage.setFont(new Font(txtMessageFont.getName() , txtMessageFont.getStyle() , 13));
+        });
+
         setOnClick();
         lstLog.setModel(lstLogModel);
         super.setView(title);
