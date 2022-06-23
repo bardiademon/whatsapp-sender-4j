@@ -60,7 +60,7 @@ public abstract class Home extends View
             txtMessage.setFont(new Font(txtMessageFont.getName() , txtMessageFont.getStyle() , 13));
         });
 
-        setOnClick();
+        setOnListener();
         lstLog.setModel(lstLogModel);
 
         updateOrder();
@@ -294,7 +294,7 @@ public abstract class Home extends View
         pack();
     }
 
-    private void setOnClick()
+    private void setOnListener()
     {
         btnConnect.addActionListener(e -> onClickBtnConnect());
         btnClearConnection.addActionListener(e -> onClickBtnClearConnection());

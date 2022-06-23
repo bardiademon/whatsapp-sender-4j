@@ -5,14 +5,23 @@ import com.bardiademon.whatsapp.sender.controller.connector.Connector;
 import com.bardiademon.whatsapp.sender.controller.connector.ConnectorStatus;
 import com.bardiademon.whatsapp.sender.model.Message;
 import com.bardiademon.whatsapp.sender.model.Message.Media;
+import com.bardiademon.whatsapp.sender.model.PhoneNumberImport;
 import com.bardiademon.whatsapp.sender.view.Home;
-import it.auties.whatsapp.model.contact.ContactJid;
+import it.auties.whatsapp.model.message.standard.DocumentMessage;
+import it.auties.whatsapp.model.message.standard.ImageMessage;
+import it.auties.whatsapp.model.message.standard.TextMessage;
+import it.auties.whatsapp.model.message.standard.VideoMessage;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import javax.swing.JFileChooser;
 import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -23,13 +32,21 @@ public class HomeController extends Home implements ConnectorStatus
 
     private final Message message = new Message();
 
+    private boolean sendingMessage;
+
     private Selection selection;
 
     private QrCodeViewerController qrCodeViewerController;
 
+    private List<PhoneNumberImport> phoneNumberImports;
+
     public HomeController()
     {
-        SwingUtilities.invokeLater(() -> setView("Whatsapp sender - bardiademon"));
+        SwingUtilities.invokeLater(() ->
+        {
+            setView("Whatsapp sender - bardiademon");
+            onClickBtnText();
+        });
     }
 
     @Override
@@ -48,6 +65,7 @@ public class HomeController extends Home implements ConnectorStatus
             btnText = "Connecting...";
         }
 
+        setStatus(btnText);
         SwingUtilities.invokeLater(() -> btnConnect.setText(btnText));
     }
 
@@ -60,7 +78,7 @@ public class HomeController extends Home implements ConnectorStatus
     @Override
     protected void onClickBtnClearLog()
     {
-
+        SwingUtilities.invokeLater(lstLogModel::clear);
     }
 
     @Override
@@ -211,7 +229,79 @@ public class HomeController extends Home implements ConnectorStatus
     @Override
     protected void onClickBtnImportPhone()
     {
+        if (phoneNumberImports == null)
+        {
+            setStatus("Import number");
+            final JFileChooser chooser = new JFileChooser();
+            chooser.setFileFilter(new FileNameExtensionFilter("JSON file" , "json"));
+            final int dialogResult = chooser.showOpenDialog(null);
+            if (dialogResult == JFileChooser.OPEN_DIALOG)
+            {
+                final File selectedFile = chooser.getSelectedFile();
+                try
+                {
+                    final String jsonStr = Files.readString(selectedFile.toPath());
 
+                    try
+                    {
+                        final JSONArray jsonNumber = new JSONArray(jsonStr);
+
+                        phoneNumberImports = new ArrayList<>();
+                        for (final Object item : jsonNumber)
+                        {
+                            if (item instanceof final JSONObject jsonItem)
+                            {
+                                final PhoneNumberImport phoneNumberImport = new PhoneNumberImport();
+                                phoneNumberImport.setName(jsonItem.getString("name"));
+                                phoneNumberImport.setPhone(jsonItem.getString("phone"));
+                                setStatus(phoneNumberImport.toString());
+                                phoneNumberImports.add(phoneNumberImport);
+                            }
+                        }
+                        if (phoneNumberImports.size() > 0)
+                        {
+                            setStatus("Successfully import number!");
+                            setLblNumberOfNumbers();
+                            SwingUtilities.invokeLater(() -> btnImportPhone.setText("Clear import"));
+                        }
+                        else throw new IOException("Not found info");
+                    }
+                    catch (JSONException e)
+                    {
+                        setStatus("Invalid json file: " + e.getMessage());
+                        phoneNumberImports.clear();
+                        phoneNumberImports = null;
+                    }
+                }
+                catch (IOException e)
+                {
+                    setStatus("Error load json number: " + e.getMessage());
+                }
+
+            }
+        }
+        else
+        {
+            phoneNumberImports.clear();
+            phoneNumberImports = null;
+            setLblNumberOfNumbers();
+        }
+    }
+
+    private void setLblNumberOfNumbers()
+    {
+        new Thread(() ->
+        {
+            int counterSend = 0;
+            if (phoneNumberImports != null && phoneNumberImports.size() > 0)
+            {
+                for (final PhoneNumberImport phoneNumberImport : phoneNumberImports)
+                    if (phoneNumberImport.isSend()) counterSend++;
+            }
+
+            final int finalCounterSend = counterSend;
+            SwingUtilities.invokeLater(() -> lblNumberOfPhones.setText(String.format("%d / %d" , finalCounterSend , (phoneNumberImports != null ? phoneNumberImports.size() : 0))));
+        }).start();
     }
 
     @Override
@@ -242,13 +332,141 @@ public class HomeController extends Home implements ConnectorStatus
 
     private void send()
     {
-        new Thread(() -> connector.whatsapp.hasWhatsapp(connector.getContactJid(message.getPhone())).thenAccept(hasWhatsappResponses ->
+        new Thread(() -> connector.hasWhatsapp(message.getPhone() , has ->
         {
-            if (hasWhatsappResponses.size() > 0 && hasWhatsappResponses.get(0).hasWhatsapp())
+            if (has)
             {
+                for (final String item : orderOfSubmission)
+                {
+                    final Selection selection = Selection.valueOf(item);
+                    switch (selection)
+                    {
+                        case TEXT -> sendText();
+                        case IMAGE -> sendImage();
+                        case VIDEO -> setVideo();
+                        case DOCUMENT -> sendDocument();
+                    }
+
+                    while (sendingMessage)
+                    {
+                        try
+                        {
+                            Thread.sleep(100);
+                        }
+                        catch (InterruptedException e)
+                        {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                }
             }
             else setStatus(String.format("This phone{%s} does not have whatsapp" , message.getPhone()));
         })).start();
+    }
+
+    private void sendText()
+    {
+        sendingMessage = true;
+        new Thread(() ->
+        {
+            if (notEmpty(message.getText()))
+            {
+                try
+                {
+                    setStatus(String.format("Text message sending to {%s}" , message.getPhone()));
+
+                    connector.whatsapp.sendMessage(connector.getContactJid(message.getPhone()) , TextMessage.newTextMessage().text(message.getText()).description("Powered by bardiademon.com").create()).thenAccept(messageInfo ->
+                    {
+                        setStatus(String.format("Text message sent to {%s}" , message.getPhone()));
+                        sendingMessage = false;
+                    });
+                }
+                catch (Exception e)
+                {
+                    setStatus(String.format("Error send text message to {%s}: %s" , message.getPhone() , e.getMessage()));
+                    sendingMessage = false;
+                }
+            }
+            else sendingMessage = false;
+        }).start();
+    }
+
+    private void sendImage()
+    {
+        sendingMessage = true;
+        new Thread(() ->
+        {
+            if (Media.checkEmpty(message.getImage()))
+            {
+                setStatus(String.format("Image message sending to {%s}" , message.getPhone()));
+
+                try (final InputStream inputStream = new File(message.getImage().getPath()).toURI().toURL().openStream())
+                {
+                    connector.whatsapp.sendMessage(connector.getContactJid(message.getPhone()) , ImageMessage.newImageMessage().storeId(connector.whatsapp.store().id()).media(inputStream.readAllBytes()).caption(message.getImage().getTest()).create()).thenAccept(messageInfo ->
+                    {
+                        setStatus(String.format("Image message sent to {%s}" , message.getPhone()));
+                        sendingMessage = false;
+                    });
+                }
+                catch (Exception e)
+                {
+                    setStatus(String.format("Error send image message to {%s}: %s" , message.getPhone() , e.getMessage()));
+                    sendingMessage = false;
+                }
+            }
+        }).start();
+    }
+
+    private void setVideo()
+    {
+        sendingMessage = true;
+        new Thread(() ->
+        {
+            if (Media.checkEmpty(message.getVideo()))
+            {
+                setStatus(String.format("Video message sending to {%s}" , message.getPhone()));
+
+                try (final InputStream inputStream = new File(message.getImage().getPath()).toURI().toURL().openStream())
+                {
+                    connector.whatsapp.sendMessage(connector.getContactJid(message.getPhone()) , VideoMessage.newVideoMessage().storeId(connector.whatsapp.store().id()).media(inputStream.readAllBytes()).caption(message.getImage().getTest()).create()).thenAccept(messageInfo ->
+                    {
+                        setStatus(String.format("Video message sent to {%s}" , message.getPhone()));
+                        sendingMessage = false;
+                    });
+                }
+                catch (Exception e)
+                {
+                    setStatus(String.format("Error send video message to {%s}: %s" , message.getPhone() , e.getMessage()));
+                    sendingMessage = false;
+                }
+            }
+        }).start();
+    }
+
+    private void sendDocument()
+    {
+        sendingMessage = true;
+        new Thread(() ->
+        {
+            if (Media.checkEmpty(message.getDocument()))
+            {
+                setStatus(String.format("Document message sending to {%s}" , message.getPhone()));
+
+                try (final InputStream inputStream = new File(message.getImage().getPath()).toURI().toURL().openStream())
+                {
+                    connector.whatsapp.sendMessage(connector.getContactJid(message.getPhone()) , DocumentMessage.newDocumentMessage().storeId(connector.whatsapp.store().id()).media(inputStream.readAllBytes()).create()).thenAccept(messageInfo ->
+                    {
+                        setStatus(String.format("Document message sent to {%s}" , message.getPhone()));
+                        sendingMessage = false;
+                    });
+                }
+                catch (Exception e)
+                {
+                    setStatus(String.format("Error send document message to {%s}: %s" , message.getPhone() , e.getMessage()));
+                    sendingMessage = false;
+                }
+            }
+        }).start();
     }
 
     private String checkPhone()
@@ -256,7 +474,7 @@ public class HomeController extends Home implements ConnectorStatus
         String phone = txtPhone.getText();
         if (phone != null && !phone.isEmpty())
         {
-            if (phone.matches("(^(989)|^(\\\\+989)|^(09)|^(9))(\\d+)") && phone.length() >= 10 && phone.length() <= 13)
+            if (phone.matches("(^(989)|^(\\+989)|^(09)|^(9))(\\d+)") && phone.length() >= 10 && phone.length() <= 13)
             {
                 int substring = -1;
                 if (phone.startsWith("+98")) substring = 3;
@@ -356,14 +574,15 @@ public class HomeController extends Home implements ConnectorStatus
     {
         if (qrCodeViewerController != null) qrCodeViewerController.close();
 
-        SwingUtilities.invokeLater(() -> btnConnect.setText("Disconnect"));
+        setStatus("Connected!");
 
-        System.out.println("Connected");
+        SwingUtilities.invokeLater(() -> btnConnect.setText("Disconnect"));
     }
 
     @Override
     public void onQrCode(InputStream inputStream)
     {
+        setStatus("Qr code");
         if (qrCodeViewerController == null) qrCodeViewerController = new QrCodeViewerController(null);
         qrCodeViewerController.setImage(inputStream);
     }

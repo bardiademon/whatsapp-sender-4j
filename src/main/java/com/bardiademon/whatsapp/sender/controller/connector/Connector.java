@@ -3,8 +3,10 @@ package com.bardiademon.whatsapp.sender.controller.connector;
 import it.auties.whatsapp.api.QrHandler;
 import it.auties.whatsapp.api.Whatsapp;
 import it.auties.whatsapp.api.WhatsappListener;
+import it.auties.whatsapp.model.chat.Chat;
 import it.auties.whatsapp.model.contact.ContactJid;
 
+import java.util.Optional;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -113,6 +115,25 @@ public final class Connector implements WhatsappListener
 
     public ContactJid getContactJid(final String phone)
     {
-        return ContactJid.of(String.format("%s@s.whatsapp.net" , phone));
+        final Optional<Chat> chatByJid = whatsapp.store().findChatByJid(ContactJid.of(String.format("%s@s.whatsapp.net" , phone)));
+        return chatByJid.map(Chat::jid).orElse(null);
+    }
+
+    public void hasWhatsapp(final String phone , final HasWhatsapp hasWhatsapp)
+    {
+        if (isConnected())
+        {
+            final ContactJid contactJid = getContactJid(phone);
+            if (contactJid != null)
+            {
+                new Thread(() -> whatsapp.hasWhatsapp(contactJid).thenAccept(hasWhatsappResponses -> hasWhatsapp.has(hasWhatsappResponses != null && hasWhatsappResponses.size() > 0 && hasWhatsappResponses.get(0).hasWhatsapp()))).start();
+            }
+            else hasWhatsapp.has(false);
+        }
+    }
+
+    public interface HasWhatsapp
+    {
+        void has(final boolean has);
     }
 }
