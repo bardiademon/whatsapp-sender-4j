@@ -20,5 +20,10 @@ public final class Message
     {
         private String path;
         private String test;
+
+        public static boolean checkEmpty(final Media media)
+        {
+            return media != null && media.getPath() != null && !media.getPath().isEmpty();
+        }
     }
 }

@@ -3,7 +3,7 @@ package com.bardiademon.whatsapp.sender.controller.connector;
 import it.auties.whatsapp.api.QrHandler;
 import it.auties.whatsapp.api.Whatsapp;
 import it.auties.whatsapp.api.WhatsappListener;
-import it.auties.whatsapp.api.WhatsappOptions;
+import it.auties.whatsapp.model.contact.ContactJid;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -13,7 +13,7 @@ public final class Connector implements WhatsappListener
 
     private static final int CONNECTION_ID = 1212;
 
-    private Whatsapp whatsapp;
+    public Whatsapp whatsapp;
     private ConnectorStatus connectorStatus;
 
     private boolean onLogged, onContact, onChat;
@@ -109,5 +109,10 @@ public final class Connector implements WhatsappListener
     public boolean isConnected()
     {
         return (whatsapp != null && onLogged && onContact && onChat && !disconnect);
+    }
+
+    public ContactJid getContactJid(final String phone)
+    {
+        return ContactJid.of(String.format("%s@s.whatsapp.net" , phone));
     }
 }

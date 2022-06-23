@@ -4,15 +4,18 @@ import com.bardiademon.whatsapp.sender.controller.QrCodeViewerController;
 import com.bardiademon.whatsapp.sender.controller.connector.Connector;
 import com.bardiademon.whatsapp.sender.controller.connector.ConnectorStatus;
 import com.bardiademon.whatsapp.sender.model.Message;
+import com.bardiademon.whatsapp.sender.model.Message.Media;
 import com.bardiademon.whatsapp.sender.view.Home;
+import it.auties.whatsapp.model.contact.ContactJid;
 
 import javax.swing.JFileChooser;
-import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.io.File;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public class HomeController extends Home implements ConnectorStatus
 {
@@ -67,7 +70,7 @@ public class HomeController extends Home implements ConnectorStatus
         SwingUtilities.invokeLater(() ->
         {
             setSelection();
-            Message.Media media = message.getDocument();
+            Media media = message.getDocument();
             if (media != null)
             {
                 txtMessage.setText(media.getTest());
@@ -115,24 +118,24 @@ public class HomeController extends Home implements ConnectorStatus
                         {
                             case IMAGE ->
                             {
-                                Message.Media media = message.getImage();
-                                if (media == null) media = new Message.Media();
+                                Media media = message.getImage();
+                                if (media == null) media = new Media();
                                 media.setPath(chooser.getSelectedFile().getAbsolutePath());
                                 message.setImage(media);
                                 onClickBtnImageChooser();
                             }
                             case VIDEO ->
                             {
-                                Message.Media media = message.getVideo();
-                                if (media == null) media = new Message.Media();
+                                Media media = message.getVideo();
+                                if (media == null) media = new Media();
                                 media.setPath(chooser.getSelectedFile().getAbsolutePath());
                                 message.setVideo(media);
                                 onClickBtnVideoChooser();
                             }
                             case DOCUMENT ->
                             {
-                                Message.Media media = message.getDocument();
-                                if (media == null) media = new Message.Media();
+                                Media media = message.getDocument();
+                                if (media == null) media = new Media();
                                 media.setPath(chooser.getSelectedFile().getAbsolutePath());
                                 message.setDocument(media);
                                 onClickBtnDocumentChooser();
@@ -143,13 +146,7 @@ public class HomeController extends Home implements ConnectorStatus
                 });
             }
         }
-        else
-            showMessage("Error" , String.format("Please select %s" , Arrays.toString(Selection.values())) , JOptionPane.ERROR_MESSAGE);
-    }
-
-    private void showMessage(final String title , final String message , final int type)
-    {
-        SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(null , message , title , type));
+        else setStatus(String.format("Please select %s" , Arrays.toString(Selection.values())));
     }
 
     @Override
@@ -159,7 +156,7 @@ public class HomeController extends Home implements ConnectorStatus
         SwingUtilities.invokeLater(() ->
         {
             setSelection();
-            Message.Media media = message.getImage();
+            Media media = message.getImage();
             if (media != null)
             {
                 txtMessage.setText(media.getTest());
@@ -188,22 +185,22 @@ public class HomeController extends Home implements ConnectorStatus
                 case TEXT -> message.setText(txtMessage.getText());
                 case IMAGE ->
                 {
-                    Message.Media media = message.getImage();
-                    if (media == null) media = new Message.Media();
+                    Media media = message.getImage();
+                    if (media == null) media = new Media();
                     media.setTest(txtMessage.getText());
                     message.setImage(media);
                 }
                 case VIDEO ->
                 {
-                    Message.Media media = message.getDocument();
-                    if (media == null) media = new Message.Media();
+                    Media media = message.getDocument();
+                    if (media == null) media = new Media();
                     media.setTest(txtMessage.getText());
                     message.setVideo(media);
                 }
                 case DOCUMENT ->
                 {
-                    Message.Media media = message.getVideo();
-                    if (media == null) media = new Message.Media();
+                    Media media = message.getVideo();
+                    if (media == null) media = new Media();
                     media.setTest(txtMessage.getText());
                     message.setDocument(media);
                 }
@@ -226,7 +223,57 @@ public class HomeController extends Home implements ConnectorStatus
     @Override
     protected void onClickBtnSendMessage()
     {
+        final String phone = checkPhone();
+        if (phone != null)
+        {
+            if (notEmpty(message.getText()) || Media.checkEmpty(message.getImage()) || Media.checkEmpty(message.getVideo()) || Media.checkEmpty(message.getDocument()))
+            {
+                message.setPhone(phone);
+                send();
+            }
+            else setStatus("Text or Media is empty");
+        }
+    }
 
+    private boolean notEmpty(final String val)
+    {
+        return val != null && !val.isEmpty();
+    }
+
+    private void send()
+    {
+        new Thread(() -> connector.whatsapp.hasWhatsapp(connector.getContactJid(message.getPhone())).thenAccept(hasWhatsappResponses ->
+        {
+            if (hasWhatsappResponses.size() > 0 && hasWhatsappResponses.get(0).hasWhatsapp())
+            {
+            }
+            else setStatus(String.format("This phone{%s} does not have whatsapp" , message.getPhone()));
+        })).start();
+    }
+
+    private String checkPhone()
+    {
+        String phone = txtPhone.getText();
+        if (phone != null && !phone.isEmpty())
+        {
+            if (phone.matches("(^(989)|^(\\\\+989)|^(09)|^(9))(\\d+)") && phone.length() >= 10 && phone.length() <= 13)
+            {
+                int substring = -1;
+                if (phone.startsWith("+98")) substring = 3;
+                else if (phone.startsWith("0")) substring = 1;
+
+                if (substring > 0)
+                {
+                    phone = phone.substring(substring);
+                    phone = "98" + phone;
+                }
+                return phone;
+            }
+            else setStatus(String.format("invalid phone number {%s}" , phone));
+        }
+        else setStatus("Phone number is empty");
+
+        return null;
     }
 
     @Override
@@ -236,15 +283,55 @@ public class HomeController extends Home implements ConnectorStatus
         SwingUtilities.invokeLater(() ->
         {
             setSelection();
-            Message.Media video = message.getVideo();
+            Media video = message.getVideo();
             if (video != null)
             {
                 txtMessage.setText(video.getTest());
                 lblValPath.setText(video.getPath());
             }
             else setEmptyMedia();
-
         });
+    }
+
+    @Override
+    protected void onClickBtnMoveBottomSelection()
+    {
+        final int selectedIndex = lstOrderOfSubmission.getSelectedIndex();
+        if (selectedIndex >= 0 && selectedIndex < orderOfSubmission.length - 1)
+        {
+            SwingUtilities.invokeLater(() ->
+            {
+                final String tmpSelection = orderOfSubmission[selectedIndex];
+                final String tmpSelectionNext = orderOfSubmission[selectedIndex + 1];
+
+                orderOfSubmission[selectedIndex] = tmpSelectionNext;
+                orderOfSubmission[selectedIndex + 1] = tmpSelection;
+
+                updateOrder();
+
+                lstOrderOfSubmission.setSelectedIndex(selectedIndex + 1);
+            });
+        }
+    }
+
+    @Override
+    protected void onClickBtnMoveTopSelection()
+    {
+        final int selectedIndex = lstOrderOfSubmission.getSelectedIndex();
+        if (selectedIndex >= 1)
+        {
+            SwingUtilities.invokeLater(() ->
+            {
+                final String tmpSelection = orderOfSubmission[selectedIndex];
+                final String tmpSelectionPre = orderOfSubmission[selectedIndex - 1];
+
+                orderOfSubmission[selectedIndex] = tmpSelectionPre;
+                orderOfSubmission[selectedIndex - 1] = tmpSelection;
+
+                updateOrder();
+                lstOrderOfSubmission.setSelectedIndex(selectedIndex - 1);
+            });
+        }
     }
 
     @Override
@@ -296,7 +383,7 @@ public class HomeController extends Home implements ConnectorStatus
         });
     }
 
-    private enum Selection
+    public enum Selection
     {
         TEXT, IMAGE, VIDEO, DOCUMENT
     }
