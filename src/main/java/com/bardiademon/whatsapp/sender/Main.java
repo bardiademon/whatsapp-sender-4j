@@ -1,41 +1,36 @@
 package com.bardiademon.whatsapp.sender;
 
-import com.bardiademon.whatsapp.sender.controller.QrCodeViewerController;
-import com.bardiademon.whatsapp.sender.controller.connector.Connector;
-import com.bardiademon.whatsapp.sender.controller.connector.ReadyToUse;
-import com.bardiademon.whatsapp.sender.view.QrCodeViewerView;
-import com.bardiademon.whatsapp.sender.view.View;
+import com.bardiademon.whatsapp.sender.controller.ViewController.HomeController;
 
-import javax.swing.SwingUtilities;
-import java.io.InputStream;
+import javax.swing.UIManager;
+import javax.swing.UIManager.LookAndFeelInfo;
+import javax.swing.UnsupportedLookAndFeelException;
 
 public class Main
 {
-    private static QrCodeViewerController qrCodeViewerController;
-
     public static void main(String[] args)
     {
-        final Connector connector = new Connector();
+        setLookAndFeel();
+        new HomeController();
+    }
 
-        SwingUtilities.invokeLater(() -> qrCodeViewerController = new QrCodeViewerController(() ->
+    private static void setLookAndFeel()
+    {
+        try
         {
-
-        }));
-
-
-        connector.connectToWhatsapp(new ReadyToUse()
+            for (LookAndFeelInfo info : UIManager.getInstalledLookAndFeels())
+            {
+                if ("Windows".equals(info.getName()))
+                {
+                    UIManager.setLookAndFeel(info.getClassName());
+                    break;
+                }
+            }
+        }
+        catch (ClassNotFoundException | UnsupportedLookAndFeelException | IllegalAccessException |
+               InstantiationException ex)
         {
-            @Override
-            public void onReady()
-            {
-                System.out.println("Ready");
-            }
-
-            @Override
-            public void onQrCode(InputStream inputStream)
-            {
-                qrCodeViewerController.setImage(inputStream);
-            }
-        });
+            ex.printStackTrace();
+        }
     }
 }

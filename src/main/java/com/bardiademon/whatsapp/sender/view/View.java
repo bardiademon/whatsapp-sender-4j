@@ -22,7 +22,7 @@ public abstract class View extends JFrame
             @Override
             public void windowClosing(WindowEvent e)
             {
-                onClose(e);
+                onClose();
             }
         });
 
@@ -39,7 +39,7 @@ public abstract class View extends JFrame
         return onClose;
     }
 
-    protected void onClose(final WindowEvent ignoredE)
+    protected void onClose()
     {
         if (onClose != null) onClose.closed();
     }
