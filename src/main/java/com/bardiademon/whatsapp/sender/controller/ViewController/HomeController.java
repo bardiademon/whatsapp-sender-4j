@@ -433,7 +433,7 @@ public class HomeController extends Home implements ConnectorStatus
                     final String minStr = min.get() < 10 ? "0" + min.get() : String.valueOf(min.get());
                     setLblNumberOfNumbers(String.format("%s:%s" , minStr , secStr));
                 }
-            } , 100 , 100);
+            } , 1000 , 1000);
         }).start();
     }
 
