@@ -3,6 +3,7 @@ package com.bardiademon.whatsapp.sender.controller.connector;
 import it.auties.whatsapp.api.QrHandler;
 import it.auties.whatsapp.api.Whatsapp;
 import it.auties.whatsapp.api.WhatsappListener;
+import it.auties.whatsapp.api.WhatsappOptions;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -13,7 +14,7 @@ public final class Connector implements WhatsappListener
     private static final int CONNECTION_ID = 1212;
 
     private Whatsapp whatsapp;
-    private ReadyToUse readyToUse;
+    private ConnectorStatus connectorStatus;
 
     private boolean onLogged, onContact, onChat;
 
@@ -23,9 +24,9 @@ public final class Connector implements WhatsappListener
     {
     }
 
-    public void connectToWhatsapp(final ReadyToUse readyToUse)
+    public void connectToWhatsapp(final ConnectorStatus connectorStatus)
     {
-        this.readyToUse = readyToUse;
+        this.connectorStatus = connectorStatus;
 
         new Thread(() ->
         {
@@ -58,6 +59,7 @@ public final class Connector implements WhatsappListener
     public void disconnect()
     {
         disconnect = true;
+        new Thread(whatsapp::disconnect).start();
     }
 
     @Override
@@ -66,6 +68,15 @@ public final class Connector implements WhatsappListener
         System.out.println("onLoggedIn");
         onLogged = true;
         checkReadyToUse();
+    }
+
+    @Override
+    public void onDisconnected(boolean reconnect)
+    {
+        onChat = false;
+        onContact = false;
+        onLogged = false;
+        connectorStatus.onDisconnect();
     }
 
     @Override
@@ -87,11 +98,16 @@ public final class Connector implements WhatsappListener
     @Override
     public QrHandler onQRCode()
     {
-        return QrHandle.toByte(readyToUse::onQrCode);
+        return QrHandle.toByte(connectorStatus::onQrCode);
     }
 
     private void checkReadyToUse()
     {
-        if (onLogged && onChat && onContact) new Thread(readyToUse::onReady).start();
+        if (onLogged && onChat && onContact) new Thread(connectorStatus::onReady).start();
+    }
+
+    public boolean isConnected()
+    {
+        return (whatsapp != null && onLogged && onContact && onChat && !disconnect);
     }
 }

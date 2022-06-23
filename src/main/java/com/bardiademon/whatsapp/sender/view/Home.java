@@ -1,13 +1,18 @@
 package com.bardiademon.whatsapp.sender.view;
 
+import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 public abstract class Home extends View
 {
+    protected final DefaultListModel<String> lstLogModel = new DefaultListModel<>();
+
     protected JButton btnClearConnection;
     protected JButton btnClearLog;
     protected JButton btnConnect;
@@ -32,6 +37,7 @@ public abstract class Home extends View
     {
         initComponents();
         setOnClick();
+        lstLog.setModel(lstLogModel);
         super.setView(title);
     }
 
@@ -238,7 +244,32 @@ public abstract class Home extends View
         btnSaveLog.addActionListener(e -> onClickBtnSaveLog());
         btnSendMessage.addActionListener(e -> onClickBtnSendMessage());
         btnVideoChooser.addActionListener(e -> onClickBtnVideoChooser());
+        btnText.addActionListener(e -> onClickBtnText());
+        txtMessage.getDocument().addDocumentListener(new DocumentListener()
+        {
+            @Override
+            public void insertUpdate(DocumentEvent e)
+            {
+                onChangeTxtMessage();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e)
+            {
+                onChangeTxtMessage();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e)
+            {
+                onChangeTxtMessage();
+            }
+        });
     }
+
+    protected abstract void onChangeTxtMessage();
+
+    protected abstract void onClickBtnText();
 
     protected abstract void onClickBtnConnect();
 
