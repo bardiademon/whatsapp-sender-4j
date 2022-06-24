@@ -67,7 +67,6 @@ public final class Connector implements WhatsappListener
     @Override
     public void onLoggedIn()
     {
-        System.out.println("onLoggedIn");
         onLogged = true;
         checkReadyToUse();
     }
@@ -81,10 +80,18 @@ public final class Connector implements WhatsappListener
         connectorStatus.onDisconnect();
     }
 
+    public void clear()
+    {
+        onChat = false;
+        onContact = false;
+        onLogged = false;
+        whatsapp = null;
+        disconnect = false;
+    }
+
     @Override
     public void onContacts()
     {
-        System.out.println("onContacts");
         onContact = true;
         checkReadyToUse();
     }
@@ -92,7 +99,6 @@ public final class Connector implements WhatsappListener
     @Override
     public void onChats()
     {
-        System.out.println("onChats");
         onChat = true;
         checkReadyToUse();
     }

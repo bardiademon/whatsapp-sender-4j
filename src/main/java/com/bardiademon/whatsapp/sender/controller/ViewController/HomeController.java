@@ -52,6 +52,8 @@ public class HomeController extends Home implements ConnectorStatus
     private boolean cancelImportNumber;
     private boolean sendingListMessage = false;
 
+    private boolean onClickClearConnection = false;
+
     private static final int MAX_MIN_WAIT_SEND_LIST_MESSAGE = 5;
 
     public HomeController()
@@ -86,7 +88,15 @@ public class HomeController extends Home implements ConnectorStatus
     @Override
     protected void onClickBtnClearConnection()
     {
+        if (onClickClearConnection) return;
 
+        if (connector.isConnected())
+        {
+            connector.whatsapp.logout();
+            setStatus("Logout...");
+            onClickClearConnection = true;
+        }
+        else setStatus("Not connected!");
     }
 
     @Override
@@ -755,9 +765,20 @@ public class HomeController extends Home implements ConnectorStatus
     @Override
     public void onQrCode(InputStream inputStream)
     {
-        setStatus("Qr code");
-        if (qrCodeViewerController == null) qrCodeViewerController = new QrCodeViewerController(null);
-        qrCodeViewerController.setImage(inputStream);
+        if (onClickClearConnection)
+        {
+            setStatus("Logout");
+            onClickClearConnection = false;
+            qrCodeViewerController = null;
+            connector.clear();
+        }
+        else
+        {
+            setStatus("Qr code");
+            if (qrCodeViewerController == null)
+                qrCodeViewerController = new QrCodeViewerController(() -> qrCodeViewerController = null);
+            qrCodeViewerController.setImage(inputStream);
+        }
     }
 
     @Override
