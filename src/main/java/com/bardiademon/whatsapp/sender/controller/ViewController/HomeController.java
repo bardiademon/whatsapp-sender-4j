@@ -517,7 +517,7 @@ public class HomeController extends Home implements ConnectorStatus
                                 {
                                     try
                                     {
-                                        Thread.sleep(100);
+                                        Thread.sleep(50);
                                     }
                                     catch (InterruptedException e)
                                     {

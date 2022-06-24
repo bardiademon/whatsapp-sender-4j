@@ -48,6 +48,7 @@ public abstract class View extends JFrame
     {
         dispose();
         ready = false;
+        onClose();
         System.gc();
     }
 
