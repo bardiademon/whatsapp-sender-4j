@@ -22,6 +22,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -32,6 +34,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public class HomeController extends Home implements ConnectorStatus
 {
+    private final DateTimeFormatter logTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss yyyy-MM-dd");
+
     private final Connector connector = new Connector();
 
     private final Message message = new Message();
@@ -292,7 +296,11 @@ public class HomeController extends Home implements ConnectorStatus
 
             }
         }
-        else stopImportNumber();
+        else
+        {
+            setStatus("Clear import");
+            stopImportNumber();
+        }
     }
 
     private void stopImportNumber()
@@ -339,7 +347,35 @@ public class HomeController extends Home implements ConnectorStatus
     @Override
     protected void onClickBtnSaveLog()
     {
+        SwingUtilities.invokeLater(() ->
+        {
+            final StringBuilder logs = new StringBuilder();
 
+            final Object[] logObj = lstLogModel.toArray();
+
+            for (final Object itemObj : logObj) logs.append(itemObj.toString()).append('\n');
+
+            final JFileChooser chooser = new JFileChooser(System.getProperty("user.dir"));
+            chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+            final int dialogResult = chooser.showOpenDialog(null);
+            if (dialogResult == JFileChooser.OPEN_DIALOG)
+            {
+                final File file = chooser.getSelectedFile();
+                final long currentTimeMillis = System.currentTimeMillis();
+                final String filename = String.format("%d.log" , currentTimeMillis);
+                final File finalFile = new File(file.getAbsolutePath() + File.separator + filename);
+
+                try
+                {
+                    Files.writeString(finalFile.toPath() , logs.toString());
+                    setStatus(String.format("Log Saved {%s}!" , finalFile.getAbsolutePath()));
+                }
+                catch (IOException e)
+                {
+                    setStatus("Error save log: " + e.getMessage());
+                }
+            }
+        });
     }
 
     @Override
@@ -735,7 +771,10 @@ public class HomeController extends Home implements ConnectorStatus
         SwingUtilities.invokeLater(() ->
         {
             lblValStatus.setText(status);
-            lstLogModel.addElement(status);
+
+            final LocalDateTime now = LocalDateTime.now();
+            final String dateTime = now.format(logTimeFormatter);
+            lstLogModel.addElement(String.format("%s :: %s" , status , dateTime));
         });
     }
 
